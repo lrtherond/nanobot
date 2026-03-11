@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
 from pydantic_settings import BaseSettings
 
@@ -200,6 +200,77 @@ class QQConfig(Base):
     )  # Allowed user openids (empty = public access)
 
 
+class MQTTTopicConfig(Base):
+    """MQTT subscription topic template."""
+
+    topic: str = "nanobot/{chat_id}/inbox"
+    qos: Literal[0, 1, 2] = 1
+    session_key_template: str | None = None
+
+
+class MQTTWillConfig(Base):
+    """Last Will and Testament (LWT) settings for MQTT."""
+
+    enabled: bool = True
+    topic: str = "nanobot/status"
+    payload: str = "offline"
+    qos: Literal[0, 1, 2] = 1
+    retain: bool = True
+
+
+class MQTTConfig(Base):
+    """MQTT channel configuration."""
+
+    enabled: bool = False
+
+    # Connection settings
+    host: str = "localhost"
+    port: int = Field(default=1883, ge=1, le=65535)
+    client_id: str = ""
+    username: str = ""
+    password: str = ""
+    keepalive: int = Field(default=60, ge=1)
+    clean_session: bool = True
+
+    # TLS settings
+    use_tls: bool = False
+    tls_insecure: bool = False
+    tls_ca_certs: str = ""
+
+    # Topic routing
+    subscribe_topics: list[MQTTTopicConfig] = Field(
+        default_factory=lambda: [MQTTTopicConfig()]
+    )
+    publish_topic_template: str = "nanobot/{chat_id}/outbox"
+    publish_qos: Literal[0, 1, 2] = 1
+    retain_outbound: bool = False
+
+    # Status messages
+    will: MQTTWillConfig = Field(default_factory=MQTTWillConfig)
+    birth_enabled: bool = True
+    birth_topic: str = "nanobot/status"
+    birth_payload: str = "online"
+    birth_qos: Literal[0, 1, 2] = 1
+    birth_retain: bool = True
+
+    # Payload format
+    payload_format: Literal["json", "text"] = "json"
+
+    # Reconnect behavior
+    reconnect_min_delay: float = Field(default=1.0, gt=0.0)
+    reconnect_max_delay: float = Field(default=60.0, gt=0.0)
+
+    # Access control
+    allow_from: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_reconnect_backoff(self) -> "MQTTConfig":
+        """Ensure reconnect bounds are internally consistent."""
+        if self.reconnect_max_delay < self.reconnect_min_delay:
+            raise ValueError("reconnect_max_delay must be greater than or equal to reconnect_min_delay")
+        return self
+
+
 class WecomConfig(Base):
     """WeCom (Enterprise WeChat) AI Bot channel configuration."""
 
@@ -225,6 +296,7 @@ class ChannelsConfig(Base):
     slack: SlackConfig = Field(default_factory=SlackConfig)
     qq: QQConfig = Field(default_factory=QQConfig)
     matrix: MatrixConfig = Field(default_factory=MatrixConfig)
+    mqtt: MQTTConfig = Field(default_factory=MQTTConfig)
     wecom: WecomConfig = Field(default_factory=WecomConfig)
 
 

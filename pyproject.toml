@@ -48,6 +48,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+mqtt = [
+    "aiomqtt>=2.3.0,<3.0.0",
+]
 wecom = [
     "wecom-aibot-sdk-python @ git+https://github.com/chengyongru/wecom_aibot_sdk.git@v0.1.2",
 ]
@@ -108,6 +111,10 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
 ignore = ["E501"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311", "py312"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
